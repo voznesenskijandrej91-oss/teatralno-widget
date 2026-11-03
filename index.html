@@ -2,66 +2,193 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Афиша: установка виджета</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Афиша «Театрально! Омск»</title>
 <style>
-  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 20px; color: #222; }
-  h1 { font-size: 20px; margin: 0 0 12px; }
-  .info { background: #f2f3f5; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px; }
-  button { background: #2787f5; color: #fff; border: 0; border-radius: 8px; padding: 12px 18px; font-size: 15px; cursor: pointer; margin: 6px 6px 6px 0; }
-  textarea { width: 100%; height: 90px; font-size: 13px; margin-top: 8px; }
+  :root {
+    --bg: #f4f1ee; --card: #ffffff; --text: #1f1a1c; --muted: #6f6569;
+    --accent: #8b1e3f; --accent-text: #ffffff; --chip: #efe7ea; --shadow: 0 2px 10px rgba(40, 20, 30, .08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #17120f; --card: #241c1f; --text: #f3eceb; --muted: #aa9fa3;
+    --accent: #c0415f; --accent-text: #ffffff; --chip: #34292d; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text);
+    padding: 14px 14px calc(24px + env(safe-area-inset-bottom, 0px)); line-height: 1.4;
+  }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 2px 10px; }
+  .card { background: var(--card); border-radius: 16px; overflow: hidden; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card.hl { outline: 2px solid var(--accent); }
+  .pic { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--chip); }
+  .nopic { width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(135deg, var(--accent), #3a0f1e); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 34px; }
+  .body { padding: 12px 14px 14px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { background: var(--chip); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+  .title { font-size: 18px; font-weight: 700; margin: 0 0 2px; }
+  .tag { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+  .meta { font-size: 14px; margin: 2px 0; }
+  .desc { font-size: 14px; color: var(--text); margin: 10px 0 0; white-space: pre-line; }
+  .buy { margin-top: 12px; width: 100%; border: 0; border-radius: 12px; padding: 13px; font-size: 16px; font-weight: 600; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  .buy:active { opacity: .85; }
+  .foot { text-align: center; margin-top: 8px; }
+  .link { background: none; border: 0; color: var(--accent); font-size: 14px; cursor: pointer; padding: 8px; }
+  .state { text-align: center; color: var(--muted); padding: 40px 10px; }
+  /* служебная страница #setup */
+  .setup button { background: #2787f5; color: #fff; border: 0; border-radius: 8px; padding: 12px 18px; font-size: 15px; cursor: pointer; margin: 6px 6px 6px 0; }
+  .setup textarea { width: 100%; height: 90px; font-size: 13px; margin-top: 8px; }
+  .setup .info { background: var(--chip); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px; }
   #log { margin-top: 14px; font-size: 14px; white-space: pre-wrap; }
   .warn { color: #c0392b; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2/dist/browser.min.js"></script>
 </head>
 <body>
-<h1>Установка виджета афиши</h1>
-<div class="info" id="info"></div>
+<div id="afisha">
+  <h1>Афиша</h1>
+  <div class="sub">«Театрально! Омск»</div>
+  <div id="list"><div class="state">Загружаем афишу…</div></div>
+  <div class="foot"><button class="link" id="site">Вся афиша на teatralno.ru</button></div>
+</div>
 
-<p><b>Шаг 1.</b> Получить ключ сообщества (разрешите доступ в окне ВК), затем скопируйте его из поля:</p>
-<button id="btnToken">Получить ключ</button>
-<textarea id="token" placeholder="Здесь появится ключ" readonly></textarea>
-
-<p><b>Шаг 2.</b> Добавить виджет на страницу сообщества (потом бот сам заменит его содержимое):</p>
-<button id="btnWidget">Установить виджет</button>
-
-<div id="log"></div>
+<div id="setup" class="setup" style="display:none">
+  <h1>Служебная страница: виджет сообщества</h1>
+  <div class="info" id="info"></div>
+  <p><b>Шаг 1.</b> Получить ключ сообщества (разрешите доступ в окне ВК), затем скопируйте его из поля:</p>
+  <button id="btnToken">Получить ключ</button>
+  <textarea id="token" placeholder="Здесь появится ключ" readonly></textarea>
+  <p><b>Шаг 2.</b> Добавить виджет на страницу сообщества (потом скрипт сам заменит его содержимое):</p>
+  <button id="btnWidget">Установить виджет</button>
+  <div id="log"></div>
+</div>
 
 <script>
-  const q = new URLSearchParams(location.search);
-  const APP_ID = Number(q.get('vk_app_id') || 0);
-  const GROUP_ID = Number(q.get('vk_group_id') || 0);
-  const $ = (id) => document.getElementById(id);
-  const log = (t, bad) => { $('log').innerHTML = '<span class="' + (bad ? 'warn' : '') + '">' + t + '</span>'; };
+  var SITE = 'https://teatralno.ru/';
+  var $ = function (id) { return document.getElementById(id); };
+  var MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var DAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
-  $('info').textContent = 'ID приложения: ' + (APP_ID || '—') + ' | ID сообщества: ' + (GROUP_ID || '—');
-  if (!GROUP_ID) log('Откройте приложение из сообщества (Управление → Приложения → ваше приложение), иначе ID сообщества не определится.', true);
+  var bridge = window.vkBridge;
+  if (bridge) {
+    bridge.send('VKWebAppInit').catch(function () {});
+    bridge.subscribe(function (e) {
+      var d = e.detail;
+      if (d && d.type === 'VKWebAppUpdateConfig' && d.data && d.data.scheme) {
+        document.documentElement.setAttribute('data-theme', /dark|space_gray/.test(d.data.scheme) ? 'dark' : 'light');
+      }
+    });
+  }
+  if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.setAttribute('data-theme', 'dark');
 
-  vkBridge.send('VKWebAppInit').catch(() => {});
+  function openLink(url) {
+    var done = function () { window.open(url, '_blank'); };
+    if (bridge) bridge.send('VKWebAppOpenLink', { url: url }).catch(done); else done();
+  }
+  $('site').onclick = function () { openLink(SITE); };
 
-  $('btnToken').onclick = async () => {
-    try {
-      const r = await vkBridge.send('VKWebAppGetCommunityAuthToken', {
-        app_id: APP_ID, group_id: GROUP_ID, scope: 'app_widget'
-      });
-      $('token').value = r.access_token;
-      log('Ключ получен. Скопируйте его и сохраните в файл vk_widget_token.txt.');
-    } catch (e) {
-      log('Не удалось получить ключ: ' + JSON.stringify(e), true);
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text) n.textContent = text;
+    return n;
+  }
+  function slugOf(url) { return url.replace(/\/+$/, '').split('/').pop(); }
+  function whenText(e) {
+    if (e.kind === 'once' && e.start) {
+      var d = new Date(e.start);
+      var s = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+      if (d.getHours() || d.getMinutes()) s += ', ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      return s;
     }
-  };
+    return e.when_text || '';
+  }
 
-  $('btnWidget').onclick = async () => {
-    const code = 'return {"title":"Афиша",' +
-                 '"rows":[{"title":"Виджет подключён","descr":"Скоро здесь появится афиша"}]};';
-    try {
-      await vkBridge.send('VKWebAppShowCommunityWidgetPreviewBox', { group_id: GROUP_ID, type: 'list', code: code });
-      log('Виджет добавлен. Теперь его будет обновлять скрипт.');
-    } catch (e) {
-      log('Не удалось добавить виджет: ' + JSON.stringify(e), true);
+  function card(e) {
+    var c = el('div', 'card');
+    c.id = slugOf(e.url);
+    if (e.image) {
+      var img = el('img', 'pic'); img.src = e.image; img.alt = e.title; img.loading = 'lazy';
+      img.onerror = function () { var f = el('div', 'nopic', '🎭'); img.replaceWith(f); };
+      c.appendChild(img);
+    } else {
+      c.appendChild(el('div', 'nopic', '🎭'));
     }
-  };
+    var b = el('div', 'body');
+    var chips = el('div', 'chips');
+    if (e.age) chips.appendChild(el('span', 'chip', e.age));
+    if (e.duration) chips.appendChild(el('span', 'chip', e.duration));
+    if (chips.childNodes.length) b.appendChild(chips);
+    b.appendChild(el('div', 'title', e.title));
+    if (e.subtitle) b.appendChild(el('div', 'tag', e.subtitle));
+    if (whenText(e)) b.appendChild(el('div', 'meta', '📅 ' + whenText(e)));
+    if (e.venue) b.appendChild(el('div', 'meta', '📍 ' + e.venue));
+    if (e.description && e.description.trim() !== (e.subtitle || '').trim()) b.appendChild(el('p', 'desc', e.description.trim()));
+    var buy = el('button', 'buy', 'Купить билет');
+    buy.onclick = function () { openLink(e.url); };
+    b.appendChild(buy);
+    c.appendChild(b);
+    return c;
+  }
+
+  function section(title, items, list) {
+    if (!items.length) return;
+    list.appendChild(el('h2', '', title));
+    items.forEach(function (e) { list.appendChild(card(e)); });
+  }
+
+  function highlight() {
+    var id = decodeURIComponent((location.hash || '').replace('#', ''));
+    if (!id || id === 'setup') return;
+    var n = document.getElementById(id);
+    if (n) { n.classList.add('hl'); n.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }
+
+  function loadAfisha() {
+    fetch('events.json?t=' + Date.now()).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (events) {
+      var now = new Date();
+      var once = events.filter(function (e) { return e.kind === 'once' && e.start && new Date(e.start) >= now; })
+                       .sort(function (a, b) { return new Date(a.start) - new Date(b.start); });
+      var rec = events.filter(function (e) { return e.kind !== 'once'; });
+      var list = $('list'); list.innerHTML = '';
+      if (!once.length && !rec.length) { list.appendChild(el('div', 'state', 'Скоро здесь появятся новые события.')); return; }
+      section('Ближайшие события', once, list);
+      section('Спектакли в наушниках', rec, list);
+      highlight();
+    }).catch(function () {
+      $('list').innerHTML = '';
+      $('list').appendChild(el('div', 'state', 'Не удалось загрузить афишу. Попробуйте позже или откройте сайт teatralno.ru.'));
+    });
+  }
+
+  /* служебная страница: открывается по ссылке с #setup, нужна только для ключа и установки виджета */
+  function initSetup() {
+    $('afisha').style.display = 'none'; $('setup').style.display = 'block';
+    var q = new URLSearchParams(location.search);
+    var APP_ID = Number(q.get('vk_app_id') || 0), GROUP_ID = Number(q.get('vk_group_id') || 0);
+    var log = function (t, bad) { $('log').innerHTML = '<span class="' + (bad ? 'warn' : '') + '">' + t + '</span>'; };
+    $('info').textContent = 'ID приложения: ' + (APP_ID || '—') + ' | ID сообщества: ' + (GROUP_ID || '—');
+    if (!GROUP_ID) log('Откройте приложение из сообщества, иначе ID сообщества не определится.', true);
+    $('btnToken').onclick = function () {
+      bridge.send('VKWebAppGetCommunityAuthToken', { app_id: APP_ID, group_id: GROUP_ID, scope: 'app_widget' })
+        .then(function (r) { $('token').value = r.access_token; log('Ключ получен. Сохраните его в файл vk_widget_token.txt.'); })
+        .catch(function (e) { log('Не удалось получить ключ: ' + JSON.stringify(e), true); });
+    };
+    $('btnWidget').onclick = function () {
+      var code = 'return {"title":"Афиша","rows":[{"title":"Виджет подключён","descr":"Скоро здесь появится афиша"}]};';
+      bridge.send('VKWebAppShowCommunityWidgetPreviewBox', { group_id: GROUP_ID, type: 'list', code: code })
+        .then(function () { log('Виджет добавлен. Теперь его будет обновлять скрипт.'); })
+        .catch(function (e) { log('Не удалось добавить виджет: ' + JSON.stringify(e), true); });
+    };
+  }
+
+  if (location.hash === '#setup') initSetup(); else loadAfisha();
 </script>
 </body>
 </html>
