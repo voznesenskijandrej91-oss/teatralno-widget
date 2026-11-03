@@ -53,7 +53,7 @@
   };
 
   $('btnWidget').onclick = async () => {
-    const code = 'return {"title":"Афиша","more":"Вся афиша","more_url":"https://teatralno.ru/",' +
+    const code = 'return {"title":"Афиша",' +
                  '"rows":[{"title":"Виджет подключён","descr":"Скоро здесь появится афиша"}]};';
     try {
       await vkBridge.send('VKWebAppShowCommunityWidgetPreviewBox', { group_id: GROUP_ID, type: 'list', code: code });
