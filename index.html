@@ -63,6 +63,10 @@
   <textarea id="token" placeholder="Здесь появится ключ" readonly></textarea>
   <p><b>Шаг 2.</b> Добавить виджет на страницу сообщества (потом скрипт сам заменит его содержимое):</p>
   <button id="btnWidget">Установить виджет</button>
+  <p><b>Шаг 3.</b> Ключ пользователя (нужен только для загрузки картинок плиток скриптом upload_tile_images.py):</p>
+  <input id="scope" value="photos,groups" style="width:100%;padding:8px;font-size:14px;margin-bottom:6px">
+  <button id="btnUser">Получить ключ пользователя</button>
+  <textarea id="utoken" placeholder="Здесь появится ключ пользователя" readonly></textarea>
   <div id="log"></div>
 </div>
 
@@ -173,6 +177,12 @@
       bridge.send('VKWebAppGetCommunityAuthToken', { app_id: APP_ID, group_id: GROUP_ID, scope: 'app_widget' })
         .then(function (r) { $('token').value = r.access_token; log('Ключ получен. Сохраните его в файл vk_widget_token.txt.'); })
         .catch(function (e) { log('Не удалось получить ключ: ' + JSON.stringify(e), true); });
+    };
+    $('btnUser').onclick = function () {
+      if (!bridge) { log('Откройте страницу из ВК: вне ВК ключ получить нельзя.', true); return; }
+      bridge.send('VKWebAppGetAuthToken', { app_id: APP_ID, scope: $('scope').value.trim() })
+        .then(function (r) { $('utoken').value = r.access_token; log('Ключ пользователя получен (права: ' + (r.scope || '—') + '). Сохраните его в файл vk_user_token.txt.'); })
+        .catch(function (e) { log('Не удалось получить ключ пользователя: ' + JSON.stringify(e), true); });
     };
     $('btnWidget').onclick = function () {
       var code = 'return {"title":"Афиша","rows":[{"title":"Виджет подключён","descr":"Скоро здесь появится афиша"}]};';
