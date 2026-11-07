@@ -37,6 +37,7 @@
   .buy:active { opacity: .85; }
   .foot { text-align: center; margin-top: 8px; }
   .link { display: inline-block; text-decoration: none; background: none; border: 0; color: var(--accent); font-size: 14px; cursor: pointer; padding: 8px; }
+  .stat { color: var(--muted); font-size: 11px; opacity: .8; margin-top: 2px; }
   .state { text-align: center; color: var(--muted); padding: 40px 10px; }
   /* служебная страница #setup */
   .setup button { background: #2787f5; color: #fff; border: 0; border-radius: 8px; padding: 12px 18px; font-size: 15px; cursor: pointer; margin: 6px 6px 6px 0; }
@@ -46,13 +47,14 @@
   .warn { color: #c0392b; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2/dist/browser.min.js"></script>
+<script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
 <body>
 <div id="afisha">
   <h1>Афиша</h1>
   <div class="sub">«Театрально! Омск»</div>
   <div id="list"><div class="state">Загружаем афишу…</div></div>
-  <div class="foot"><a class="link" id="site" href="https://teatralno.ru/" target="_blank" rel="noopener noreferrer">Вся афиша на teatralno.ru</a></div>
+  <div class="foot"><a class="link" id="site" href="https://teatralno.ru/" target="_blank" rel="noopener noreferrer">Вся афиша на teatralno.ru</a><div class="stat" id="stat" style="display:none">Статистика посещений: Яндекс.Метрика</div></div>
 </div>
 
 <div id="setup" class="setup" style="display:none">
@@ -72,6 +74,8 @@
 
 <script>
   var SITE = 'https://teatralno.ru/';
+  var METRIKA_ID = 114121198;             /* номер вашего счётчика Яндекс.Метрики (0 - статистика выключена) */
+  var SHOW_DESCRIPTION = true;   /* описание в карточках: true - показывать, false - скрыть */
   var $ = function (id) { return document.getElementById(id); };
   var MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
   var DAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
@@ -88,13 +92,77 @@
   }
   if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.setAttribute('data-theme', 'dark');
 
+  /* MAX: признаки запуска внутри MAX (в ВК приходят параметры vk_*, там логику MAX не включаем) */
+  var isVk = /[?&]vk_app_id=/.test(location.search);
+  var maxApp = (!isVk && window.WebApp && window.WebApp.initData) ? window.WebApp : null;
+
+  /* UTM-метки: Яндекс.Метрика на сайте сама покажет, откуда пришли (ВК, MAX или другое), с какой кнопки и на какое событие */
+  function platformName() { return isVk ? 'vk' : (maxApp ? 'max' : 'web'); }
+  /* Яндекс.Метрика (свой счётчик афиши): открытия афиши и нажатия «Купить билет» по событиям и площадкам */
+  if (METRIKA_ID) {
+    (function (m, e, t, r, i, k, a) {
+      m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments); };
+      m[i].l = 1 * new Date();
+      k = e.createElement(t); a = e.getElementsByTagName(t)[0]; k.async = 1; k.src = r; a.parentNode.insertBefore(k, a);
+    })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
+    window.ym(METRIKA_ID, 'init', { clickmap: false, trackLinks: false, accurateTrackBounce: true, params: { platform: platformName() } });
+  }
+  /* goal - цель (её можно создать в Метрике), hit - «виртуальная страница», видна в отчётах сразу без настройки */
+  function track(goal, hit, title, params) {
+    if (!METRIKA_ID || typeof window.ym !== 'function') return;
+    try {
+      params = params || {}; params.platform = platformName();
+      window.ym(METRIKA_ID, 'reachGoal', goal, params);
+      window.ym(METRIKA_ID, 'hit', hit, { title: title, params: params });
+    } catch (err) {}
+  }
+
+  function withUtm(url, content) {
+    try {
+      var u = new URL(url);
+      u.searchParams.set('utm_source', platformName());
+      u.searchParams.set('utm_medium', 'miniapp');
+      u.searchParams.set('utm_campaign', 'afisha');
+      if (content) u.searchParams.set('utm_content', content);
+      return u.toString();
+    } catch (e) { return url; }
+  }
+
+  /* ссылка наружу: в MAX открываем через мост (он требует нажатия пользователя), в остальных местах обычная ссылка */
+  function bindExternal(a, plainUrl, content, stat) {
+    var url = withUtm(plainUrl, content);
+    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    if (stat) a.addEventListener('click', function () { track(stat.goal, stat.hit, stat.title, stat.params); });
+    if (maxApp && typeof maxApp.openLink === 'function') {
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        try { maxApp.openLink(url); } catch (e) { window.open(url, '_blank'); }
+      });
+    }
+  }
+  if (METRIKA_ID) $('stat').style.display = 'block';
+  bindExternal($('site'), SITE, 'all', { goal: 'site_click', hit: '/click/site', title: 'Вся афиша на сайте', params: {} });
+
+  function startParam() {
+    var raw = '';
+    try {
+      if (maxApp && maxApp.initDataUnsafe && maxApp.initDataUnsafe.start_param != null) {
+        var sp = maxApp.initDataUnsafe.start_param;
+        raw = (typeof sp === 'object') ? (sp.value || sp.start_param || '') : String(sp);
+      }
+    } catch (e) {}
+    if (!raw) { var m = /[?&]WebAppStartParam=([^&#]*)/.exec(location.search + location.hash); if (m) raw = decodeURIComponent(m[1]); }
+    if (!raw) raw = decodeURIComponent((location.hash || '').replace('#', ''));
+    return raw.replace(/[^A-Za-z0-9_-]/g, '');
+  }
+
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (text) n.textContent = text;
     return n;
   }
-  function slugOf(url) { return url.replace(/\/+$/, '').split('/').pop(); }
+  function slugOf(url) { return url.split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop(); }
   function whenText(e) {
     if (e.kind === 'once' && e.start) {
       var d = new Date(e.start);
@@ -124,9 +192,9 @@
     if (e.subtitle) b.appendChild(el('div', 'tag', e.subtitle));
     if (whenText(e)) b.appendChild(el('div', 'meta', '📅 ' + whenText(e)));
     if (e.venue) b.appendChild(el('div', 'meta', '📍 ' + e.venue));
-    if (e.description && e.description.trim() !== (e.subtitle || '').trim()) b.appendChild(el('p', 'desc', e.description.trim()));
+    if (SHOW_DESCRIPTION && e.description && e.description.trim() !== (e.subtitle || '').trim()) b.appendChild(el('p', 'desc', e.description.trim()));
     var buy = el('a', 'buy', 'Купить билет');
-    buy.href = e.url; buy.target = '_blank'; buy.rel = 'noopener noreferrer';
+    bindExternal(buy, e.url, slugOf(e.url), { goal: 'buy_click', hit: '/click/buy/' + slugOf(e.url), title: 'Купить билет: ' + e.title, params: { event: slugOf(e.url) } });
     b.appendChild(buy);
     c.appendChild(b);
     return c;
@@ -139,7 +207,7 @@
   }
 
   function highlight() {
-    var id = decodeURIComponent((location.hash || '').replace('#', ''));
+    var id = startParam();
     if (!id || id === 'setup') return;
     var n = document.getElementById(id);
     if (n) { n.classList.add('hl'); n.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
