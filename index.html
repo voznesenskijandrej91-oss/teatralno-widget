@@ -48,6 +48,10 @@
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2/dist/browser.min.js"></script>
 <script src="https://st.max.ru/js/max-web-app.js"></script>
+<script>
+  /* Telegram: его скрипт нужен только при запуске из Telegram (признак tgWebApp в адресе), в остальных случаях не загружаем */
+  if (/tgWebApp/.test(location.hash + location.search)) document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');
+</script>
 </head>
 <body>
 <div id="afisha">
@@ -95,9 +99,16 @@
   /* MAX: признаки запуска внутри MAX (в ВК приходят параметры vk_*, там логику MAX не включаем) */
   var isVk = /[?&]vk_app_id=/.test(location.search);
   var maxApp = (!isVk && window.WebApp && window.WebApp.initData) ? window.WebApp : null;
+  var tgApp = (!isVk && !maxApp && window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp : null;
+  if (tgApp) {
+    try { tgApp.ready(); tgApp.expand(); } catch (e) {}
+    var tgTheme = function () { document.documentElement.setAttribute('data-theme', tgApp.colorScheme === 'dark' ? 'dark' : 'light'); };
+    tgTheme();
+    try { tgApp.onEvent('themeChanged', tgTheme); } catch (e) {}
+  }
 
   /* UTM-метки: Яндекс.Метрика на сайте сама покажет, откуда пришли (ВК, MAX или другое), с какой кнопки и на какое событие */
-  function platformName() { return isVk ? 'vk' : (maxApp ? 'max' : 'web'); }
+  function platformName() { return isVk ? 'vk' : (maxApp ? 'max' : (tgApp ? 'tg' : 'web')); }
   /* Яндекс.Метрика (свой счётчик афиши): открытия афиши и нажатия «Купить билет» по событиям и площадкам */
   if (METRIKA_ID) {
     (function (m, e, t, r, i, k, a) {
@@ -139,6 +150,12 @@
         try { maxApp.openLink(url); } catch (e) { window.open(url, '_blank'); }
       });
     }
+    if (tgApp && typeof tgApp.openLink === 'function') {
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        try { tgApp.openLink(url); } catch (e) { window.open(url, '_blank'); }
+      });
+    }
   }
   if (METRIKA_ID) $('stat').style.display = 'block';
   bindExternal($('site'), SITE, 'all', { goal: 'site_click', hit: '/click/site', title: 'Вся афиша на сайте', params: {} });
@@ -150,9 +167,11 @@
         var sp = maxApp.initDataUnsafe.start_param;
         raw = (typeof sp === 'object') ? (sp.value || sp.start_param || '') : String(sp);
       }
+      if (!raw && tgApp && tgApp.initDataUnsafe && tgApp.initDataUnsafe.start_param) raw = String(tgApp.initDataUnsafe.start_param);
     } catch (e) {}
+    if (!raw) { var t = /[?&#]tgWebAppStartParam=([^&#]*)/.exec(location.search + location.hash); if (t) raw = decodeURIComponent(t[1]); }
     if (!raw) { var m = /[?&]WebAppStartParam=([^&#]*)/.exec(location.search + location.hash); if (m) raw = decodeURIComponent(m[1]); }
-    if (!raw) raw = decodeURIComponent((location.hash || '').replace('#', ''));
+    if (!raw && !/tgWebApp/.test(location.hash)) raw = decodeURIComponent((location.hash || '').replace('#', ''));
     return raw.replace(/[^A-Za-z0-9_-]/g, '');
   }
 
